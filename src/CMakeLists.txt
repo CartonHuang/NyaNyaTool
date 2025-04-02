@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Set C++ standard and compiler options
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 #set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 
 # Set cmake module path to current directory
@@ -203,6 +203,9 @@ if(${CURRENT_OS} STREQUAL "linux")
 elseif(${CURRENT_OS} STREQUAL "windows")
     target_link_libraries(${PROJECT_NAME} 
         opengl32
+        d3d11
+        dxgi
+        windowsapp
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw/libs/msvc-x64/glfw3.lib
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/mars-face-kit/libs/${CURRENT_OS}/msvc-x64/mars-face-kit.lib)
 elseif(${CURRENT_OS} STREQUAL "macos")
@@ -241,3 +244,4 @@ elseif(${CURRENT_OS} STREQUAL "android")
         jnigraphics
         mars-face-kit)
 endif()
+

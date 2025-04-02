@@ -245,7 +245,6 @@ void renderFrame() {
 
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
   // Swap buffers and poll events
   glfwSwapBuffers(mainWindow);
   glfwPollEvents();
@@ -273,9 +272,10 @@ int main() {
 
   // Initialize filters and pipeline
   setupFilterPipeline();
-
+  glfwSwapInterval(1);
   // Main render loop
   while (!glfwWindowShouldClose(mainWindow)) {
+    // cal fps
     renderFrame();
   }
 

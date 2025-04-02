@@ -4,6 +4,7 @@
 #include "source.h"
 #include <windows.h>
 #include <wingdi.h>
+
 namespace gpupixel {
 
 class GPUPIXEL_API SourceCapture : public Source {
@@ -25,11 +26,10 @@ class GPUPIXEL_API SourceCapture : public Source {
   bool init();
   void processWindowCapture();
   void renderToFramebuffer();
-
+  
   GPUPixelGLProgram* _filterProgram = nullptr;
   GLuint _texture = 0;
   bool _textureInitialized = false;
-
 #if defined(GPUPIXEL_WIN)
   HWND targetHwnd_ = nullptr;
 #elif defined(GPUPIXEL_MAC)
