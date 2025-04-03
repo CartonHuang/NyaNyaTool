@@ -49,6 +49,7 @@ bool showWindowSelector = false;
 // GLFW framebuffer resize callback
 void onFramebufferResize(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
+  renderSink->onSizeChanged(width, height);
   renderSink1->onSizeChanged(width, height);
 }
 
@@ -99,31 +100,24 @@ void setupImGui() {
 // Initialize GPUPixel filters and pipeline
 void setupFilterPipeline() {
   // Create filters
-  lipstickFilter = LipstickFilter::create();
-  blusherFilter = BlusherFilter::create();
-  reshapeFilter = FaceReshapeFilter::create();
-  beautyFilter = BeautyFaceFilter::create();
-
-  // Create source image and render sink
-  sourceImage = SourceImage::create("demo.png");
-  sourceCapture = SourceCapture::create();
-  sourceCapture->captureFrame();
-  renderSink = std::make_shared<SinkRender>();
-  renderSink1 = std::make_shared<SinkRender>();
-
   lipstickFilter1 = LipstickFilter::create();
   blusherFilter1 = BlusherFilter::create();
   reshapeFilter1 = FaceReshapeFilter::create();
   beautyFilter1 = BeautyFaceFilter::create();
 
 
+  // Create source image and render sink
+  sourceImage = SourceImage::create("./demo.png");
+  sourceCapture = SourceCapture::create();
+  sourceCapture->captureFrame();
+  renderSink = std::make_shared<SinkRender>();
+  renderSink1 = std::make_shared<SinkRender>();
+
+
+
+
 
   // Setup face landmarks callback
-  sourceImage->RegLandmarkCallback([=](std::vector<float> landmarks) {
-    lipstickFilter->SetFaceLandmarks(landmarks);
-    blusherFilter->SetFaceLandmarks(landmarks);
-    reshapeFilter->SetFaceLandmarks(landmarks);
-  });
 
   sourceCapture->RegLandmarkCallback([=](std::vector<float> landmarks) {
     lipstickFilter1->SetFaceLandmarks(landmarks);
@@ -132,10 +126,7 @@ void setupFilterPipeline() {
   });
 
   // Build filter pipeline
-  sourceImage->addSink(lipstickFilter)
-      ->addSink(blusherFilter)
-      ->addSink(reshapeFilter)
-      ->addSink(beautyFilter)
+  sourceImage
       ->addSink(renderSink);
 
   sourceCapture->addSink(lipstickFilter1)
@@ -143,7 +134,8 @@ void setupFilterPipeline() {
       ->addSink(reshapeFilter1)
       ->addSink(beautyFilter1)
       ->addSink(renderSink1);
-  renderSink1->onSizeChanged(1920, 1080);
+  renderSink->onSizeChanged(1280, 720);
+  renderSink1->onSizeChanged(1280, 720);
 
 }
 
@@ -151,32 +143,26 @@ void setupFilterPipeline() {
 void updateFilterParameters() {
   // Beauty filter controls
   if (ImGui::SliderFloat("Smoothing", &beautyStrength, 0.0f, 10.0f)) {
-    beautyFilter->setBlurAlpha(beautyStrength / 10.0f);
     beautyFilter1->setBlurAlpha(beautyStrength / 10.0f);
   }
 
   if (ImGui::SliderFloat("Whitening", &whiteningStrength, 0.0f, 10.0f)) {
-    beautyFilter->setWhite(whiteningStrength / 20.0f);
     beautyFilter1->setWhite(whiteningStrength / 20.0f);
   }
 
   if (ImGui::SliderFloat("Face Slimming", &faceSlimStrength, 0.0f, 10.0f)) {
-    reshapeFilter->setFaceSlimLevel(faceSlimStrength / 200.0f);
     reshapeFilter1->setFaceSlimLevel(faceSlimStrength / 200.0f);
   }
 
   if (ImGui::SliderFloat("Eye Enlarging", &eyeEnlargeStrength, 0.0f, 10.0f)) {
-    reshapeFilter->setEyeZoomLevel(eyeEnlargeStrength / 100.0f);
     reshapeFilter1->setEyeZoomLevel(eyeEnlargeStrength / 100.0f);
   }
 
   if (ImGui::SliderFloat("Lipstick", &lipstickStrength, 0.0f, 10.0f)) {
-    lipstickFilter->setBlendLevel(lipstickStrength / 10.0f);
     lipstickFilter1->setBlendLevel(lipstickStrength / 10.0f);
   }
 
   if (ImGui::SliderFloat("Blusher", &blusherStrength, 0.0f, 10.0f)) {
-    blusherFilter->setBlendLevel(blusherStrength / 10.0f);
     blusherFilter1->setBlendLevel(blusherStrength / 10.0f);
   }
 }
@@ -272,10 +258,8 @@ int main() {
 
   // Initialize filters and pipeline
   setupFilterPipeline();
-  glfwSwapInterval(1);
   // Main render loop
   while (!glfwWindowShouldClose(mainWindow)) {
-    // cal fps
     renderFrame();
   }
 

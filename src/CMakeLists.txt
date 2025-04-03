@@ -87,7 +87,8 @@ file(GLOB SOURCE_FILES
 file(GLOB EXPORT_HEADER 
     "${CMAKE_CURRENT_SOURCE_DIR}/core/*.h"         
     "${CMAKE_CURRENT_SOURCE_DIR}/filter/*.h"         
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/*.h"       
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/*.h"   
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/*.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/sink/*.h"                      
     "${CMAKE_CURRENT_SOURCE_DIR}/utils/*.h"                 
     "${CMAKE_CURRENT_SOURCE_DIR}/face_detect/*.h"      
@@ -126,7 +127,7 @@ endif()
 # Library Configuration
 # ----------------------------------------
 # Create shared library
-add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${RESOURCE_FILES} "source/source_capture.h")
+add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
 
 # Platform specific library configuration
 if(${CURRENT_OS} STREQUAL "linux")

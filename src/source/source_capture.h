@@ -4,7 +4,10 @@
 #include "source.h"
 #include <windows.h>
 #include <wingdi.h>
+#include <mutex>
 
+
+static std::mutex mtx;
 namespace gpupixel {
 
 class GPUPIXEL_API SourceCapture : public Source {
@@ -26,7 +29,6 @@ class GPUPIXEL_API SourceCapture : public Source {
   bool init();
   void processWindowCapture();
   void renderToFramebuffer();
-  
   GPUPixelGLProgram* _filterProgram = nullptr;
   GLuint _texture = 0;
   bool _textureInitialized = false;
