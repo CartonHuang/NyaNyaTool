@@ -269,7 +269,7 @@ void GPUPixelContext::createContext() {
     // todo log error
     return;
   }
-  gl_context_ = glfwCreateWindow(VIEW_WIDTH, VIEW_HEIGHT, "gpupixel opengl context", NULL, NULL);
+  gl_context_ = glfwCreateWindow(VIEW_WIDTH, VIEW_HEIGHT, "妙妙工具", NULL, NULL);
   if (!gl_context_) {
     // todo log error
     glfwTerminate();

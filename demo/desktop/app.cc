@@ -33,7 +33,7 @@ float faceSlimStrength = 0.0f;
 float eyeEnlargeStrength = 0.0f;
 float lipstickStrength = 0.0f;
 float blusherStrength = 0.0f;
-
+bool isWindowTopMost = false;
 // 在app.cc顶部添加全局纹理变量
 static GLuint g_capturedTexture = 0;
 static ImVec2 g_capturedSize(0, 0);
@@ -77,6 +77,7 @@ bool setupGlfwWindow() {
 
   return true;
 }
+
 
 // Initialize ImGui interface
 void setupImGui() {
@@ -203,6 +204,16 @@ void renderFrame() {
     windowTitles.clear();
     EnumWindows(enumWindowsProc, 0);
     showWindowSelector = true;
+  }
+  // Add button to toggle window top-most state
+  if (ImGui::Button(isWindowTopMost ? "Disable Top-Most" : "Enable Top-Most")) {
+    isWindowTopMost = !isWindowTopMost;
+    HWND hwnd = glfwGetWin32Window(mainWindow);
+    if (isWindowTopMost) {
+      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    } else {
+      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
   }
 
   ImGui::End();

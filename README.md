@@ -1,154 +1,64 @@
-<h1 align="center">
-  <a href="https://github.com/pixpark/gpupixel"><img src="./docs/image/cover.png"></a>
-</h1>
+# Windows 实时视频美颜播放器 
 
-<p align="center">
-  <a href="./README.md">English</a> |
-  <a href="./README_CN.md">简体中文</a>
-</p>
+## ♿️项目概述 
 
-<p align="center">
-  <a href="https://gpupixel.pixpark.net/" target="_blank">Doc</a>
-  <span> · </span>
-  <a href="https://gpupixel.pixpark.net/zh" target="_blank">文档</a>
-</p>
+本项目是一个基于 [GPUPixel](https://github.com/pixpark/gpupixel) 开发的 Windows 系统实时视频美颜播放器(屏幕捕获)。GPUPixel 是一个高性能、易于集成的图像和视频过滤库，本播放器借助其强大的功能，实现了对视频的实时美颜处理，为用户带来更加出色的视觉体验。 
 
-<p align="center">
-   <a href="https://github.com/pixpark/gpupixel/stargazers"><img alt="GPUPixel Stars" src="https://img.shields.io/github/stars/pixpark/gpupixel?style=social"/></a>
-    <a href="https://github.com/pixpark/gpupixel/releases/latest"><img alt="GPUPixel Release" src="https://img.shields.io/github/v/release/pixpark/gpupixel"/></a>
-    <a href="#"><img alt="GPUPixel Stars" src="https://img.shields.io/badge/Platform-iOS_%7C_Android_%7C_Mac_%7C_Win_%7C_Linux-red"/></a>
-     <a href="https://github.com/pixpark/gpupixel/actions/workflows/release.yml"><img src="https://github.com/pixpark/gpupixel/actions/workflows/release.yml/badge.svg"></a>
-    <a href="https://github.com/pixpark/gpupixel/blob/main/LICENSE"><img alt="GPUPixel Stars" src="https://img.shields.io/github/license/pixpark/gpupixel"/></a>
-</p>
+## 🧐功能特性 
 
-<p align="center">
-<a href="https://discord.gg/q2MjmqK4" target="_blank"><img alt="GPUPixel Discord" src="https://img.shields.io/badge/Chat-Discord-blue?logo=discord&logoColor=white&labelColor=grey&color=blue"/></a>
-<a href="https://gpupixel.pixpark.net/about/contact#qq-group" target="_blank"><img alt="QQ Group" src="https://img.shields.io/badge/-QQ群-gray?logo=qq&logoColor=white&labelColor=gray&color=blue&style=flat"/></a>
-<a href="https://gpupixel.pixpark.net/about/contact#wechat-official-account" target="_blank"><img alt="GPUPixel Wechat" src="https://img.shields.io/badge/-公众号-gray?logo=wechat&logoColor=white&labelColor=gray&color=07C160&style=flat"/></a>
-<a href="https://gpupixel.pixpark.net/about/contact#paid-support" target="_blank"><img alt="GPUPixel 付费支持" src="https://img.shields.io/badge/-付费支持-gray?logo=payhip&logoColor=white&labelColor=grey&color=07C160&style=flat"/></a>
-<a href="https://github.com/pixpark/gpupixel#Sponsorship" target="_blank"><img alt="Sponsor" src="https://img.shields.io/badge/-Sponsor-gray?logo=githubsponsors&logoColor=white&labelColor=grey&color=FE6AB2&style=flat"/></a>
-</p>
+### 美颜效果 
 
-<p align="center">
-<a href="https://trendshift.io/repositories/7103" target="_blank"><img src="https://trendshift.io/api/badge/repositories/7103" alt="pixpark%2Fgpupixel | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
+- **皮肤平滑**：有效减少皮肤瑕疵，使皮肤看起来更加光滑细腻。 
+- **皮肤美白**：提升皮肤亮度，实现美白效果。 
+- **瘦脸大眼**：对脸部轮廓进行调整，达到瘦脸和放大眼睛的视觉效果。
+- **口红腮红**：为人物添加口红和腮红效果，增添气色。 
 
----
+### 实时处理 
 
-> 🌟 Join us in making GPUPixel better through [discussions](https://github.com/pixpark/gpupixel/discussions), [issues](https://github.com/pixpark/gpupixel/issues/new/choose), and [PRs](https://github.com/pixpark/gpupixel/pulls).
+对视频流进行实时美颜处理，确保播放过程中无明显延迟，流畅度高。 
 
-> 📢 Note: VNN face detection library has been replaced with Mars-Face from v1.3.0-beta
+### 屏幕捕获
 
-## Introduction
+程序使用 WGC 接口进行窗口捕获，通过捕获其他窗口的图像作为程序输入。
 
-🚀 GPUPixel is a real-time, high-performance image and video filter library that's extremely easy to compile and integrate with a small footprint.
+### 拓展支持
 
-💻 GPUPixel is written in C++11 and built on OpenGL/ES, featuring built-in beauty face filters that deliver commercial-grade results.
+可以基于[GPUPixel](https://github.com/pixpark/gpupixel) 项目的文档进行自定义的滤镜开发。
 
-🌐 GPUPixel supports multiple platforms including `iOS`, `Android`, `Mac`, `Win` and `Linux`, and can be ported to virtually any platform that supports OpenGL/ES.
+## 💃效果展示 
 
-## Effects Preview
+### 美颜效果
 
- **Video: <a href="https://www.youtube.com/watch?v=evy4W7Y9Xpg" target="_blank">YouTube</a>**
+此处引用[GPUPixel](https://github.com/pixpark/gpupixel) 项目的美颜效果演示。
 
+|              **原图**              |                **磨皮**                |               **美白**               |                 **瘦脸**               |
+| :--------------------------------: | :------------------------------------: | :----------------------------------: | :------------------------------------: |
+| ![origin](./docs/image/origin.gif) |   ![smooth](./docs/image/smooth.gif)   |   ![white](./docs/image/white.gif)   | ![thinface](./docs/image/thinface.gif) |
+|              **大眼**              |                **口红**                |               **腮红**               |                 **开关**               |
+| ![bigeye](./docs/image/bigeye.gif) | ![lipstick](./docs/image/lipstick.gif) | ![blusher](./docs/image/blusher.gif) |   ![on-off](./docs/image/on-off.gif)   |
 
-|                   **Origin**                    |                    **Smooth**                     |                    **White**                     |                   **ThinFace**                    |
-| :---------------------------------------------: | :-----------------------------------------------: | :----------------------------------------------: | :-----------------------------------------------: |
-| <img src="./docs/image/origin.gif" width="180px"> |  <img src="./docs/image/smooth.gif" width="180px">  |  <img src="./docs/image/white.gif" width="180px">  | <img src="./docs/image/thinface.gif" width="180px"> |
-|                   **BigEye**                    |                   **Lipstick**                    |                   **Blusher**                    |                    **ON-OFF**                     |
-| <img src="./docs/image/bigeye.gif" width="180px"> | <img src="./docs/image/lipstick.gif" width="180px"> | <img src="./docs/image/blusher.gif" width="180px"> |  <img src="./docs/image/on-off.gif" width="180px">  |
+### 延迟演示
 
-## Architecture
-![](./docs/image/arch.jpg)
+**录制存在掉帧，仅参考视频延迟即可，左侧为原始画面**
 
-## Features
+![delay](./docs/image//delay.gif)
 
-✨ This table compares the features supported by **GPUPixel**, **GPUImage**, and **Android-GPUImage**:
+## 😲环境要求
 
-✅: Supported | ❌: Not supported | ✏️: Planning
+- **操作系统**：Windows 10 及以上版本 
+- **开发环境**：Visual Studio 2017 及以上（需支持 C++17） 
+- **依赖库**：    
+- OpenGL：GPUPixel 基于 OpenGL/ES 构建，需确保系统支持 OpenGL。    
+- GPUPixel 库：请按照 [GPUPixel 构建文档](https://gpupixel.pixpark.net/guide/build) 进行编译和安装。
 
-|                       | [GPUPixel](https://github.com/pixpark/gpupixel) | [GPUImage](https://github.com/BradLarson/GPUImage) | [Android-GPUImage](https://github.com/cats-oss/android-gpuimage) |
-| :-------------------- | :---------------------------------------------: | :------------------------------------------------: | :----------------------------------------------------------: |
-| **Filters:**          |                        ✅                        |                         ❌                          |                              ❌                               |
-| Skin Smoothing Filter |                        ✅                        |                         ❌                          |                              ❌                               |
-| Skin Whitening Filter |                        ✅                        |                         ❌                          |                              ❌                               |
-| Face Slimming Filter  |                        ✅                        |                         ❌                          |                              ❌                               |
-| Big Eyes Filter       |                        ✅                        |                         ❌                          |                              ❌                               |
-| Lipstick Filter       |                        ✅                        |                         ❌                          |                              ❌                               |
-| Blush Filter          |                        ✅                        |                         ❌                          |                              ❌                               |
-| More Build in Filter  |                        ✅                        |                         ✅                          |                              ✅                               |
-| **Input Formats:**    |                                                 |                                                    |                                                              |
-| YUV420P(I420)         |                        ✅                        |                         ❌                          |                              ❌                               |
-| RGBA                  |                        ✅                        |                         ✅                          |                              ✅                               |
-| JPEG                  |                        ✅                        |                         ✅                          |                              ✅                               |
-| PNG                   |                        ✅                        |                         ✅                          |                              ✅                               |
-| NV21(for Android)     |                        ✏️                        |                         ❌                          |                              ❌                               |
-| **Output Formats:**   |                                                 |                                                    |                                                              |
-| RGBA                  |                        ✅                        |                         ✅                          |                              ✅                               |
-| YUV420P(I420)         |                        ✅                        |                         ❌                          |                              ❌                               |
-| **Platform:**         |                                                 |                                                    |                                                              |
-| iOS                   |                        ✅                        |                         ✅                          |                              ❌                               |
-| Mac                   |                        ✅                        |                         ✅                          |                              ❌                               |
-| Android               |                        ✅                        |                         ❌                          |                              ✅                               |
-| Win                   |                        ✅                        |                         ❌                          |                              ❌                               |
-| Linux                 |                        ✅                        |                         ❌                          |                              ❌                               |
+## 😭BUG提示
 
+由于在渲染上存在一个我没de出来的同步异步bug，导致如果你在开启一个窗口后再将它全屏或者最大化，大概率会触发闪退，当然相应的解决方法就是先把这个窗口全屏了再开启捕捉就可以了，之后只要你不是一秒切五六次全屏，都是可以正常在全屏和普通窗口间切换的。
 
+## 📄许可证
 
-## Before You Start
-⭐ Star us on GitHub to receive instant notifications about new releases!
+本项目基于 [Apache - 2.0 许可证](https://github.com/pixpark/gpupixel?tab=Apache-2.0-1-ov-file) 开源。请确保在使用和分发本项目时遵守该许可证的规定。
 
-![](./docs/image/give-star.gif)
+## 🙏致谢
 
-
-
-## Getting Started
-
-🔍 See the docs: [Introduction](https://gpupixel.pixpark.net/guide/build) | [Build](https://gpupixel.pixpark.net/guide/build) | [Demo](https://gpupixel.pixpark.net/guide/demo) | [Integration](https://gpupixel.pixpark.net/guide/integrated)
-
-## Contributing
-
-🤝 Help make GPUPixel better by joining our [discussions](https://github.com/pixpark/gpupixel/discussions), opening [issues](https://github.com/pixpark/gpupixel/issues/new/choose), or submitting [PRs](https://github.com/pixpark/gpupixel/pulls). Check our [Contributing Guide](docs/docs/en/guide/contributing.md) to get started.
-
-Please also consider supporting GPUPixel by sharing it on social media and at events and conferences.
-
-## Contributors
- [![](https://opencollective.com/gpupixel/contributors.svg?width=890&button=false)](https://github.com/pixpark/gpupixel/graphs/contributors)
-
-## Sponsorship
-💖 If you like this project, consider supporting us through the following methods:
-
-| [☕ Support me on Ko-fi](docs/docs/en/sponsor.md#ko-fi) | [💝 Support on Open Collective](docs/docs/en/sponsor.md#open-collective) | [💰 WeChat Sponsor](docs/docs/en/sponsor.md#wechat) |
-|:---:|:---:|:---:|
-
-## Sponsors
-
-🙏 Thank you to the following contributors for their generous support of the project:
-
-<a href="https://github.com/leavenotrace">
-  <picture>
-    <img src="https://github.com/leavenotrace.png" width="50" height="50" style="border-radius: 50%;" alt="@leavenotrace">
-  </picture>
-</a>
-<a href="https://github.com/weiyu666">
-  <picture>
-    <img src="https://github.com/weiyu666.png" width="50" height="50" style="border-radius: 50%;" alt="@weiyu666">
-  </picture>
-</a>
-
-## Contact & Support
-- 📚 [Docs](https://gpupixel.pixpark.net/) : Online documentation
-- 🐛 [Issues](https://github.com/pixpark/gpupixel/issues/new/choose) : Report bugs or request features
-- 📧 [Email](mailto:jaaronkot@gmail.com?subject=[GitHub]Questions%20About%20GPUPixel) : Send us a message
-- 📞 [Contact](docs/docs/en/about/contact.md) : Get in touch with us
-
-## Acknowledgements
-### 🔗 Reference Projects
-1. [GPUImage](https://github.com/BradLarson/GPUImage) 
-2. [CainCamera](https://github.com/CainKernel/CainCamera)
-3. [AwemeLike](https://github.com/ZZZZou/AwemeLike)
-4. [VNN](https://github.com/joyycom/VNN)
-
-## License
-📄 This repository is available under the [Apache-2.0 License](https://github.com/pixpark/gpupixel?tab=Apache-2.0-1-ov-file).
-
+感谢 [GPUPixel](https://github.com/pixpark/gpupixel) 项目的开源贡献，为我们提供了强大的图像和视频过滤库。

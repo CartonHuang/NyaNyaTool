@@ -17,6 +17,7 @@
 #include <winrt/Windows.Graphics.Capture.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
 #include <winrt/Windows.Foundation.h >
+#include <mutex>
 using namespace Microsoft::WRL;
 using namespace winrt;
 using namespace winrt::Windows::Graphics;
@@ -103,18 +104,19 @@ void SourceCapture::Render() {
   if (!_framebuffer || !_textureInitialized) {
     return;
   }
-
   GPUPixelContext::getInstance()->runSync([=] {
+    mtx.lock();
     // 绑定FBO并清除内容
     _framebuffer->active();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // 设置视口匹配FBO尺寸
-    glViewport(0, 0, _framebuffer->getWidth(), _framebuffer->getHeight());
+    glViewport(0, 0, captureItem.Size().Width, captureItem.Size().Height);
 
     // 执行实际渲染
 
     if (!targetHwnd_ || !IsWindow(targetHwnd_)) {
+      mtx.unlock();
       return;
     }
     // 验证HWND有效性
@@ -152,8 +154,8 @@ void SourceCapture::Render() {
     const uint8_t* src = static_cast<uint8_t*>(mapped.pData);
     uint8_t* dst = pixels.data();
     const size_t srcRowPitch = mapped.RowPitch;
-    const size_t dstRowPitch = captureWidth * 4;  // 假设目标不需要对齐
-    auto end_time = std::chrono::steady_clock::now();
+    const size_t dstRowPitch = captureWidth * 4;  
+
     for (int y = 0; y < captureHeight; ++y) {
       memcpy(dst + y * dstRowPitch, src + y * srcRowPitch, dstRowPitch);
     }
@@ -201,8 +203,7 @@ void SourceCapture::Render() {
 
     // 触发后续滤镜链
     Source::doRender(true);
-
-    
+    mtx.unlock();
 
   });
 }
@@ -316,11 +317,21 @@ void SourceCapture::processWindowCapture() {
 
     g_frameToken = g_framePool.FrameArrived([&](auto&&,
                                                                 auto&&) {
+    mtx.lock();
     if (Direct3D11CaptureFrame frame = g_framePool.TryGetNextFrame()) {
       // 获取帧尺寸
       SizeInt32 size = frame.ContentSize();
       captureHeight = size.Height;
       captureWidth = size.Width;
+      if (captureItem.Size().Width != captureWidth ||
+          captureItem.Size().Height != captureHeight) {
+        g_framePool.Recreate(g_winrtDevice,
+                             DirectXPixelFormat::B8G8R8A8UIntNormalized, 2,
+                             captureItem.Size());
+        printf("%d %d\n", captureItem.Size().Width, captureItem.Size().Height);
+        captureWidth = captureItem.Size().Width;
+        captureHeight = captureItem.Size().Height;
+      }
       // 获取DXGI接口
       auto surface = frame.Surface();
       auto access = surface.as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
@@ -332,7 +343,7 @@ void SourceCapture::processWindowCapture() {
       }
       frame.Close();
     }
-    
+    mtx.unlock();
   });
   // 等待捕获完成
   MSG msg;

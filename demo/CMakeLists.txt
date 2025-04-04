@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Define and initialize application project
-set(APP_PROJECT_NAME "gpupixel_app")
+set(APP_PROJECT_NAME "NyaNyaTool")
 project(${APP_PROJECT_NAME})
 
 # Platform Detection
@@ -108,7 +108,7 @@ endif()
 # Build Configuration
 # ----------------------------------------
 # Create executable from source files
-add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${SOURCE_FILES} app.rc)
 
 # Library Linkage Configuration
 # Configure platform-specific library dependencies
