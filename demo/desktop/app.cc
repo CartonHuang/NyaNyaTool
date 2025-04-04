@@ -45,7 +45,7 @@ GLFWwindow* mainWindow = nullptr;
 std::vector<HWND> openWindows;
 std::vector<std::string> windowTitles;
 bool showWindowSelector = false;
-
+// Callback for window close event
 // GLFW framebuffer resize callback
 void onFramebufferResize(GLFWwindow* window, int width, int height) {
   glViewport(0, 0, width, height);
@@ -54,6 +54,38 @@ void onFramebufferResize(GLFWwindow* window, int width, int height) {
 }
 
 // Initialize GLFW and create window
+#include "imgui_internal.h"
+
+// Add a new variable to track fullscreen state
+bool isFullscreen = false;
+GLFWwindow* fullscreenWindow = nullptr;
+
+// Function to toggle fullscreen mode
+void toggleFullscreen() {
+  if (isFullscreen) {
+    // Restore windowed mode
+    glfwSetWindowMonitor(mainWindow, nullptr, 100, 100, 1280, 720, 0);
+    isFullscreen = false;
+  } else {
+    // Enter fullscreen mode  
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();  
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);  
+    glfwSetWindowMonitor(mainWindow, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+    glfwSetWindowAttrib(mainWindow, GLFW_AUTO_ICONIFY,
+                        GLFW_FALSE);  // 禁用自动最小化
+    glfwSetInputMode(mainWindow, GLFW_CURSOR,
+                     GLFW_CURSOR_NORMAL);  // 保持鼠标可见  
+    isFullscreen = true;
+  }
+}
+
+// Key callback to handle F key press
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+  if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+    toggleFullscreen();
+  }
+}
+
 bool setupGlfwWindow() {
   // Initialize GLFW
   if (!glfwInit()) {
@@ -74,6 +106,9 @@ bool setupGlfwWindow() {
   glfwMakeContextCurrent(mainWindow);
   glfwShowWindow(mainWindow);
   glfwSetFramebufferSizeCallback(mainWindow, onFramebufferResize);
+
+  // Set key callback
+  glfwSetKeyCallback(mainWindow, keyCallback);
 
   return true;
 }
