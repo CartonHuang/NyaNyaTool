@@ -10,6 +10,7 @@
 #include "backends/imgui_impl_opengl3.h"
 #include "gpupixel.h"
 #include "imgui.h"
+#pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
 using namespace gpupixel;
 
@@ -65,6 +66,8 @@ void toggleFullscreen() {
   if (isFullscreen) {
     // Restore windowed mode
     glfwSetWindowMonitor(mainWindow, nullptr, 100, 100, 1280, 720, 0);
+    glfwSetWindowAttrib(mainWindow, GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+    glfwSetWindowAttrib(mainWindow, GLFW_FLOATING, GLFW_TRUE);
     isFullscreen = false;
   } else {
     // Enter fullscreen mode  
@@ -92,7 +95,8 @@ bool setupGlfwWindow() {
     std::cout << "Failed to initialize GLFW" << std::endl;
     return false;
   }
-
+  glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+  glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // 保持窗口装饰
   // Get OpenGL context window from GPUPixel
   mainWindow = GPUPixelContext::getInstance()->GetGLContext();
   if (mainWindow == NULL) {
@@ -106,6 +110,8 @@ bool setupGlfwWindow() {
   glfwMakeContextCurrent(mainWindow);
   glfwShowWindow(mainWindow);
   glfwSetFramebufferSizeCallback(mainWindow, onFramebufferResize);
+
+  glfwSetWindowAttrib(mainWindow, GLFW_HOVERED, GLFW_TRUE);
 
   // Set key callback
   glfwSetKeyCallback(mainWindow, keyCallback);
@@ -245,9 +251,9 @@ void renderFrame() {
     isWindowTopMost = !isWindowTopMost;
     HWND hwnd = glfwGetWin32Window(mainWindow);
     if (isWindowTopMost) {
-      SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+      glfwSetWindowAttrib(mainWindow, GLFW_FLOATING, GLFW_TRUE);
     } else {
-      SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+      glfwSetWindowAttrib(mainWindow, GLFW_FLOATING, GLFW_FALSE);
     }
   }
 
