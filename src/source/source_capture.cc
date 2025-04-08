@@ -110,9 +110,9 @@ void SourceCapture::Render() {
     _framebuffer->active();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    
     // 设置视口匹配FBO尺寸
-    glViewport(0, 0, captureItem.Size().Width, captureItem.Size().Height);
-
+    glViewport(0, 0, captureWidth, captureHeight);
     // 执行实际渲染
 
     if (!targetHwnd_ || !IsWindow(targetHwnd_)) {
@@ -325,12 +325,11 @@ void SourceCapture::processWindowCapture() {
       captureWidth = size.Width;
       if (captureItem.Size().Width != captureWidth ||
           captureItem.Size().Height != captureHeight) {
+
         g_framePool.Recreate(g_winrtDevice,
-                             DirectXPixelFormat::B8G8R8A8UIntNormalized, 2,
+                             DirectXPixelFormat::B8G8R8A8UIntNormalized, 1,
                              captureItem.Size());
         printf("%d %d\n", captureItem.Size().Width, captureItem.Size().Height);
-        captureWidth = captureItem.Size().Width;
-        captureHeight = captureItem.Size().Height;
       }
       // 获取DXGI接口
       auto surface = frame.Surface();
