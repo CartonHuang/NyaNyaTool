@@ -105,7 +105,15 @@ bool setupGlfwWindow() {
     return false;
   }
 
-  // Initialize GLAD and setup window parameters
+  HWND hwnd = glfwGetWin32Window(mainWindow);
+  LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+  style = WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN |
+          WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
+          WS_MAXIMIZEBOX;
+
+  SetWindowLongPtr(hwnd, GWL_STYLE, style);
+
+
   gladLoadGL();
   glfwMakeContextCurrent(mainWindow);
   glfwShowWindow(mainWindow);
