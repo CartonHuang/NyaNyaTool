@@ -96,16 +96,12 @@ void SourceCapture::setTargetWindow(uint32_t windowID) {
 }
 #endif
 
-void SourceCapture::captureFrame() {
-  GPUPixelContext::getInstance()->runSync([=] { processWindowCapture(); });
-}
-
 void SourceCapture::Render() {
   if (!_framebuffer || !_textureInitialized) {
     return;
   }
   GPUPixelContext::getInstance()->runSync([=] {
-    mtx.lock();
+
     // 绑定FBO并清除内容
     _framebuffer->active();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -116,14 +112,14 @@ void SourceCapture::Render() {
     // 执行实际渲染
 
     if (!targetHwnd_ || !IsWindow(targetHwnd_)) {
-      mtx.unlock();
+
       return;
     }
     // 验证HWND有效性
     if (!IsWindow(targetHwnd_)) {
       throw std::runtime_error("Invalid window handle");
     }
-
+    
     // 验证捕获结果
     if (!capturedTexture || captureWidth <= 0 || captureHeight <= 0) {
       throw std::runtime_error("Frame capture failed");
@@ -149,6 +145,7 @@ void SourceCapture::Render() {
     D3D11_MAPPED_SUBRESOURCE mapped;
     d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0,
                                   &mapped);
+
     // 触发渲染
     std::vector<uint8_t> pixels(captureWidth * captureHeight * 4);
     const uint8_t* src = static_cast<uint8_t*>(mapped.pData);
@@ -203,7 +200,7 @@ void SourceCapture::Render() {
 
     // 触发后续滤镜链
     Source::doRender(true);
-    mtx.unlock();
+
 
   });
 }
@@ -317,7 +314,7 @@ void SourceCapture::processWindowCapture() {
 
     g_frameToken = g_framePool.FrameArrived([&](auto&&,
                                                                 auto&&) {
-    mtx.lock();
+
     if (Direct3D11CaptureFrame frame = g_framePool.TryGetNextFrame()) {
       // 获取帧尺寸
       SizeInt32 size = frame.ContentSize();
@@ -342,7 +339,7 @@ void SourceCapture::processWindowCapture() {
       }
       frame.Close();
     }
-    mtx.unlock();
+
   });
   // 等待捕获完成
   MSG msg;

@@ -159,7 +159,6 @@ void setupFilterPipeline() {
   // Create source image and render sink
   sourceImage = SourceImage::create("./demo.png");
   sourceCapture = SourceCapture::create();
-  sourceCapture->captureFrame();
   renderSink = std::make_shared<SinkRender>();
   renderSink1 = std::make_shared<SinkRender>();
 
@@ -220,6 +219,7 @@ void updateFilterParameters() {
 
 
 // EnumWindows callback function to list open windows
+// 修改 enumWindowsProc 回调
 BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
   wchar_t titleW[256];
   char titleUTF8[256 * 4];
@@ -227,9 +227,13 @@ BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
   GetWindowTextW(hwnd, titleW, sizeof(titleW) / sizeof(wchar_t));
   WideCharToMultiByte(CP_UTF8, 0, titleW, -1, titleUTF8, sizeof(titleUTF8),
                       NULL, NULL);
-  if (IsWindowVisible(hwnd) && strlen(titleUTF8) > 0) {
+  if (IsWindowVisible(hwnd) && titleW[0] != L'\0') {
     openWindows.push_back(hwnd);
-    windowTitles.push_back(titleUTF8);
+    // 添加窗口句柄信息到标题
+    char buffer[512];
+    snprintf(buffer, sizeof(buffer), "%s [0x%p]",
+             strlen(titleUTF8) > 0 ? titleUTF8 : "(Untitled)", hwnd);
+    windowTitles.push_back(buffer);
   }
   return TRUE;
 }
@@ -272,6 +276,11 @@ void renderFrame() {
     ImGui::Begin("Select Window", &showWindowSelector);
     for (size_t i = 0; i < windowTitles.size(); ++i) {
       if (ImGui::Button(windowTitles[i].c_str())) {
+        // 检测选中的窗口是否被最小化
+        HWND hwnd = openWindows[i];
+        if (IsIconic(hwnd)) {
+          continue;
+        }
         sourceCapture->setTargetWindow(openWindows[i]);
         showWindowSelector = false;
       }
