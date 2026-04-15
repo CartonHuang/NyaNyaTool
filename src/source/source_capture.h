@@ -16,6 +16,7 @@ class GPUPIXEL_API SourceCapture : public Source {
   static std::shared_ptr<SourceCapture> create();
   void Render();
   void captureFrame();
+  void stopCapture();
   bool isTextureInitialized() const { return _textureInitialized; }
 
 #if defined(GPUPIXEL_WIN)

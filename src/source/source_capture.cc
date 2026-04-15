@@ -12,6 +12,8 @@
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <chrono>
+#include <thread>
 #include <vector>
 #include <wrl.h>
 #include <winrt/Windows.Graphics.Capture.h>
@@ -33,6 +35,30 @@ static IDirect3DDevice g_winrtDevice = nullptr;
 static winrt::event_token g_frameToken;
 static int captureHeight = 0;
 static int captureWidth = 0;
+
+namespace {
+void stopCaptureSession() {
+  if (g_framePool && g_frameToken) {
+    g_framePool.FrameArrived(g_frameToken);
+    g_frameToken = {};
+  }
+  if (g_session) {
+    g_session.Close();
+    g_session = nullptr;
+  }
+  if (g_framePool) {
+    g_framePool.Close();
+    g_framePool = nullptr;
+  }
+  g_d3dDevice.Reset();
+  capturedTexture.Reset();
+  captureItem = nullptr;
+  g_winrtDevice = nullptr;
+  captureHeight = 0;
+  captureWidth = 0;
+}
+}  // namespace
+
 namespace gpupixel {
 
 const std::string kCaptureVertexShader = R"(
@@ -64,6 +90,9 @@ SourceCapture::SourceCapture() {}
 
 SourceCapture::~SourceCapture() {
   GPUPixelContext::getInstance()->runSync([=] {
+#if defined(GPUPIXEL_WIN)
+    stopCaptureSession();
+#endif
     if (_texture) {
       glDeleteTextures(1, &_texture);
     }
@@ -82,6 +111,8 @@ void SourceCapture::setTargetWindow(HWND hwnd) {
     targetHwnd_ = hwnd;
     if (targetHwnd_ && IsWindow(targetHwnd_)) {
       processWindowCapture();
+    } else {
+      stopCapture();
     }
   });
 }
@@ -102,27 +133,28 @@ void SourceCapture::Render() {
   }
   GPUPixelContext::getInstance()->runSync([=] {
 
-    // °ó¶¨FBO²¢Çå³ýÄÚÈÝ
+    // ï¿½ï¿½FBOï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     _framebuffer->active();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     
-    // ÉèÖÃÊÓ¿ÚÆ¥ÅäFBO³ß´ç
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½Æ¥ï¿½ï¿½FBOï¿½ß´ï¿½
     glViewport(0, 0, captureWidth, captureHeight);
-    // Ö´ÐÐÊµ¼ÊäÖÈ¾
+    // Ö´ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½È¾
 
     if (!targetHwnd_ || !IsWindow(targetHwnd_)) {
 
       return;
     }
-    // ÑéÖ¤HWNDÓÐÐ§ÐÔ
+    // ï¿½ï¿½Ö¤HWNDï¿½ï¿½Ð§ï¿½ï¿½
     if (!IsWindow(targetHwnd_)) {
-      throw std::runtime_error("Invalid window handle");
+      stopCapture();
+      return;
     }
     
-    // ÑéÖ¤²¶»ñ½á¹û
+    // ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (!capturedTexture || captureWidth <= 0 || captureHeight <= 0) {
-      throw std::runtime_error("Frame capture failed");
+      return;
     }
     ComPtr<ID3D11DeviceContext> d3dContext;
     g_d3dDevice->GetImmediateContext(&d3dContext);
@@ -135,18 +167,18 @@ void SourceCapture::Render() {
 
     ComPtr<ID3D11Texture2D> stagingTexture;
     if (FAILED(g_d3dDevice->CreateTexture2D(&desc, nullptr, &stagingTexture))) {
-      throw std::runtime_error("Failed to create staging texture");
+      return;
     }
 
-    // ½«²¶»ñµÄÎÆÀí¸´ÖÆµ½ÔÝ´æÎÆÀí
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½
     d3dContext->CopyResource(stagingTexture.Get(), capturedTexture.Get());
 
-    // Ó³ÉäÎÆÀíÊý¾Ý
+    // Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     D3D11_MAPPED_SUBRESOURCE mapped;
     d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0,
                                   &mapped);
 
-    // ´¥·¢äÖÈ¾
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾
     std::vector<uint8_t> pixels(captureWidth * captureHeight * 4);
     const uint8_t* src = static_cast<uint8_t*>(mapped.pData);
     uint8_t* dst = pixels.data();
@@ -158,7 +190,7 @@ void SourceCapture::Render() {
     }
 
 
-    // ³õÊ¼»¯/¸üÐÂOpenGLÎÆÀí
+    // ï¿½ï¿½Ê¼ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½OpenGLï¿½ï¿½ï¿½ï¿½
     if (!_textureInitialized) {
     glGenTextures(1, &_texture);
     glBindTexture(GL_TEXTURE_2D, _texture);
@@ -168,7 +200,7 @@ void SourceCapture::Render() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     _textureInitialized = true;
     }
-    // ¸üÐÂframebuffer
+    // ï¿½ï¿½ï¿½ï¿½framebuffer
     if (!_framebuffer || _framebuffer->getWidth() != captureWidth ||
         _framebuffer->getHeight() != captureHeight) {
     _framebuffer = GPUPixelContext::getInstance()
@@ -177,15 +209,15 @@ void SourceCapture::Render() {
     setFramebuffer(_framebuffer);
     }
 
-    // ÉÏ´«ÎÆÀíÊý¾Ý
+    // ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexImage2D(GL_TEXTURE_2D, 0,
-                GL_RGBA,  // OpenGLÄÚ²¿¸ñÊ½
+                GL_RGBA,  // OpenGLï¿½Ú²ï¿½ï¿½ï¿½Ê½
                 captureWidth, captureHeight, 0,
-                GL_BGRA,  // Æ¥ÅäDXGI_FORMAT_B8G8R8A8_UNORM
+                GL_BGRA,  // Æ¥ï¿½ï¿½DXGI_FORMAT_B8G8R8A8_UNORM
                  GL_UNSIGNED_BYTE, pixels.data());
 
-    // ½â³ýÓ³Éä
+    // ï¿½ï¿½ï¿½Ó³ï¿½ï¿½
     d3dContext->Unmap(stagingTexture.Get(), 0);
     
     
@@ -198,7 +230,7 @@ void SourceCapture::Render() {
           GPUPIXEL_MODE_FMT_PICTURE, GPUPIXEL_FRAME_TYPE_RGBA8888);
     }
 
-    // ´¥·¢ºóÐøÂË¾µÁ´
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¾ï¿½ï¿½ï¿½
     Source::doRender(true);
 
 
@@ -241,34 +273,18 @@ void SourceCapture::processWindowCapture() {
   int width = rc.right - rc.left;
   int height = rc.bottom - rc.top;
 
-  // ÑéÖ¤HWNDÓÐÐ§ÐÔ
+  // ï¿½ï¿½Ö¤HWNDï¿½ï¿½Ð§ï¿½ï¿½
   if (!IsWindow(targetHwnd_)) {
     throw std::runtime_error("Invalid window handle");
   }
-  // Çå³ýÔ­ÓÐ½Ó¿Ú
-  if (g_framePool && g_frameToken) {
-    g_framePool.FrameArrived(g_frameToken);
-    g_frameToken = {};
-  }
-  if (g_framePool) {
-    g_framePool.Close();
-    g_framePool = nullptr;
-  }
-  if (g_session) {
-    g_session.Close();
-    g_session = nullptr;
-  }
-  g_d3dDevice.Reset();
-  capturedTexture.Reset();
-  captureItem = nullptr;
-  g_winrtDevice = nullptr;
-  // »ñÈ¡Í¼ÐÎ²¶»ñ½Ó¿Ú
+  stopCaptureSession();
+  // ï¿½ï¿½È¡Í¼ï¿½Î²ï¿½ï¿½ï¿½Ó¿ï¿½
   auto activation_factory = winrt::get_activation_factory<
       winrt::Windows::Graphics::Capture::GraphicsCaptureItem>();
   auto captureInterop = activation_factory.as<IGraphicsCaptureItemInterop>();
     
 
-  // ´´½¨²¶»ñÏî
+  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   if (FAILED(captureInterop->CreateForWindow(
           targetHwnd_,
           winrt::guid_of<
@@ -277,7 +293,7 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create capture item");
   }
 
-  // ´´½¨D3D11Éè±¸
+  // ï¿½ï¿½ï¿½ï¿½D3D11ï¿½è±¸
   D3D_FEATURE_LEVEL featureLevel;
   if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
                                nullptr, 0, D3D11_SDK_VERSION, &g_d3dDevice,
@@ -285,7 +301,7 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create D3D11 device");
   }
 
-  // ×ª»»ÎªWinRTÍ¼ÐÎÉè±¸
+  // ×ªï¿½ï¿½ÎªWinRTÍ¼ï¿½ï¿½ï¿½è±¸
   ComPtr<IDXGIDevice> dxgiDevice;
   g_d3dDevice.As(&dxgiDevice);
   IInspectable* inspectable = nullptr;
@@ -301,12 +317,12 @@ void SourceCapture::processWindowCapture() {
   inspectable->Release();
 
 
-  // ´´½¨Ö¡³Ø
+  // ï¿½ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½
   g_framePool = Direct3D11CaptureFramePool::Create(
       g_winrtDevice, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2,
       captureItem.Size());
 
-  // ´´½¨²¶»ñ»á»°
+  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á»°
   g_session =
       g_framePool.CreateCaptureSession(captureItem);
 
@@ -316,7 +332,7 @@ void SourceCapture::processWindowCapture() {
                                                                 auto&&) {
 
     if (Direct3D11CaptureFrame frame = g_framePool.TryGetNextFrame()) {
-      // »ñÈ¡Ö¡³ß´ç
+      // ï¿½ï¿½È¡Ö¡ï¿½ß´ï¿½
       SizeInt32 size = frame.ContentSize();
       captureHeight = size.Height;
       captureWidth = size.Width;
@@ -328,11 +344,11 @@ void SourceCapture::processWindowCapture() {
                              captureItem.Size());
         printf("%d %d\n", captureItem.Size().Width, captureItem.Size().Height);
       }
-      // »ñÈ¡DXGI½Ó¿Ú
+      // ï¿½ï¿½È¡DXGIï¿½Ó¿ï¿½
       auto surface = frame.Surface();
       auto access = surface.as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
 
-      // »ñÈ¡ÎÆÀí
+      // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½
       ComPtr<ID3D11Texture2D> texture;
       if (SUCCEEDED(access->GetInterface(IID_PPV_ARGS(&texture)))) {
         capturedTexture = texture;
@@ -341,8 +357,10 @@ void SourceCapture::processWindowCapture() {
     }
 
   });
-  // µÈ´ý²¶»ñÍê³É
+  // ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   MSG msg;
+  const auto waitStart = std::chrono::steady_clock::now();
+  constexpr auto kFirstFrameTimeout = std::chrono::milliseconds(400);
   while (true){
     
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -352,14 +370,18 @@ void SourceCapture::processWindowCapture() {
     if (capturedTexture) {
       break;
     }
+    if (std::chrono::steady_clock::now() - waitStart >= kFirstFrameTimeout) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 
 
 
   
-  // ÑéÖ¤²¶»ñ½á¹û
+  // ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   if (!capturedTexture || captureWidth <= 0 || captureHeight <= 0) {
-    throw std::runtime_error("Frame capture failed");
+    return;
   }
 
   ComPtr<ID3D11DeviceContext> d3dContext;
@@ -377,14 +399,14 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create staging texture");
   }
 
-  // ½«²¶»ñµÄÎÆÀí¸´ÖÆµ½ÔÝ´æÎÆÀí
+  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½
   d3dContext->CopyResource(stagingTexture.Get(), capturedTexture.Get());
 
-  // Ó³ÉäÎÆÀíÊý¾Ý
+  // Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   D3D11_MAPPED_SUBRESOURCE mapped = {0};
   if (SUCCEEDED(d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0,
                                 &mapped))) {
-    // ³õÊ¼»¯/¸üÐÂOpenGLÎÆÀí
+    // ï¿½ï¿½Ê¼ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½OpenGLï¿½ï¿½ï¿½ï¿½
     if (!_textureInitialized) {
       glGenTextures(1, &_texture);
       glBindTexture(GL_TEXTURE_2D, _texture);
@@ -395,7 +417,7 @@ void SourceCapture::processWindowCapture() {
       _textureInitialized = true;
     }
 
-    // ¸üÐÂframebuffer£¨Èç¹ûÐèÒª£©
+    // ï¿½ï¿½ï¿½ï¿½framebufferï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
     if (!_framebuffer || _framebuffer->getWidth() != captureWidth ||
         _framebuffer->getHeight() != captureHeight) {
       _framebuffer = GPUPixelContext::getInstance()
@@ -404,20 +426,29 @@ void SourceCapture::processWindowCapture() {
       setFramebuffer(_framebuffer);
     }
 
-    // ÉÏ´«ÎÆÀíÊý¾Ý
+    // ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexImage2D(GL_TEXTURE_2D, 0,
-                 GL_RGBA,  // OpenGLÄÚ²¿¸ñÊ½
+                 GL_RGBA,  // OpenGLï¿½Ú²ï¿½ï¿½ï¿½Ê½
                  captureWidth, captureHeight, 0,
-                 GL_BGRA,  // Æ¥ÅäDXGI_FORMAT_B8G8R8A8_UNORM
+                 GL_BGRA,  // Æ¥ï¿½ï¿½DXGI_FORMAT_B8G8R8A8_UNORM
                  GL_UNSIGNED_BYTE, mapped.pData);
 
-    // ½â³ýÓ³Éä
+    // ï¿½ï¿½ï¿½Ó³ï¿½ï¿½
     d3dContext->Unmap(stagingTexture.Get(), 0);
   }
 
-  // ´¥·¢äÖÈ¾
+  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¾
   renderToFramebuffer();
+#endif
+}
+
+void SourceCapture::stopCapture() {
+#if defined(GPUPIXEL_WIN)
+  stopCaptureSession();
+  targetHwnd_ = nullptr;
+#elif defined(GPUPIXEL_MAC)
+  macWindowID_ = 0;
 #endif
 }
 

@@ -311,20 +311,31 @@ void renderFrame() {
 
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-  // Swap buffers and poll events
+  // Swap buffers
   glfwSwapBuffers(mainWindow);
-  glfwPollEvents();
 }
 
 // Clean up resources
 void cleanupResources() {
+  if (sourceCapture) {
+    sourceCapture->stopCapture();
+  }
+  sourceCapture.reset();
+  sourceImage.reset();
+  renderSink.reset();
+  renderSink1.reset();
+  beautyFilter1.reset();
+  reshapeFilter1.reset();
+  lipstickFilter1.reset();
+  blusherFilter1.reset();
+
   // Cleanup ImGui
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
-  // Cleanup GLFW
-  glfwTerminate();
+  // Destroy OpenGL context/window managed by GPUPixel.
+  GPUPixelContext::destroy();
 }
 
 int main() {
@@ -340,7 +351,11 @@ int main() {
   setupFilterPipeline();
   // Main render loop
   auto lastFrameTime = std::chrono::steady_clock::now();
-  while (!glfwWindowShouldClose(mainWindow)) {
+  while (true) {
+    glfwPollEvents();
+    if (glfwWindowShouldClose(mainWindow)) {
+      break;
+    }
     renderFrame();
     const bool isFocused =
         glfwGetWindowAttrib(mainWindow, GLFW_FOCUSED) == GLFW_TRUE;
