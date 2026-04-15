@@ -3,8 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 #include <windows.h>  // For Windows API
+#include <chrono>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
@@ -35,7 +37,7 @@ float eyeEnlargeStrength = 0.0f;
 float lipstickStrength = 0.0f;
 float blusherStrength = 0.0f;
 bool isWindowTopMost = false;
-// ÔÚapp.cc¶¥²¿Ìí¼ÓÈ«¾ÖÎÆÀí±äÁ¿
+// ï¿½ï¿½app.ccï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 static GLuint g_capturedTexture = 0;
 static ImVec2 g_capturedSize(0, 0);
 
@@ -75,9 +77,9 @@ void toggleFullscreen() {
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);  
     glfwSetWindowMonitor(mainWindow, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     glfwSetWindowAttrib(mainWindow, GLFW_AUTO_ICONIFY,
-                        GLFW_FALSE);  // ½ûÓÃ×Ô¶¯×îÐ¡»¯
+                        GLFW_FALSE);  // ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½
     glfwSetInputMode(mainWindow, GLFW_CURSOR,
-                     GLFW_CURSOR_NORMAL);  // ±£³ÖÊó±ê¿É¼û  
+                     GLFW_CURSOR_NORMAL);  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¼ï¿½  
     isFullscreen = true;
   }
 }
@@ -96,7 +98,7 @@ bool setupGlfwWindow() {
     return false;
   }
   glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
-  glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // ±£³Ö´°¿Ú×°ÊÎ
+  glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);  // ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ï¿½×°ï¿½ï¿½
   // Get OpenGL context window from GPUPixel
   mainWindow = GPUPixelContext::getInstance()->GetGLContext();
   if (mainWindow == NULL) {
@@ -116,6 +118,8 @@ bool setupGlfwWindow() {
 
   gladLoadGL();
   glfwMakeContextCurrent(mainWindow);
+  // Enable VSync to reduce tearing under compositor scheduling pressure.
+  glfwSwapInterval(1);
   glfwShowWindow(mainWindow);
   glfwSetFramebufferSizeCallback(mainWindow, onFramebufferResize);
 
@@ -134,15 +138,15 @@ void setupImGui() {
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc",  // Î¢ÈíÑÅºÚ×ÖÌåÂ·¾¶
+  io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc",  // Î¢ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½
                                18.0f, nullptr,
                                io.Fonts->GetGlyphRangesChineseFull());
 
-  // ÉèÖÃÆäËûÅäÖÃ
+  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   ImGui::StyleColorsDark();
 
-  // ³õÊ¼»¯ºó¶Ë
+  // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½
   ImGui_ImplGlfw_InitForOpenGL(mainWindow, true);
   ImGui_ImplOpenGL3_Init("#version 130");
 }
@@ -219,7 +223,7 @@ void updateFilterParameters() {
 
 
 // EnumWindows callback function to list open windows
-// ÐÞ¸Ä enumWindowsProc »Øµ÷
+// ï¿½Þ¸ï¿½ enumWindowsProc ï¿½Øµï¿½
 BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
   wchar_t titleW[256];
   char titleUTF8[256 * 4];
@@ -229,7 +233,7 @@ BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
                       NULL, NULL);
   if (IsWindowVisible(hwnd) && titleW[0] != L'\0') {
     openWindows.push_back(hwnd);
-    // Ìí¼Ó´°¿Ú¾ä±úÐÅÏ¢µ½±êÌâ
+    // ï¿½ï¿½Ó´ï¿½ï¿½Ú¾ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     char buffer[512];
     snprintf(buffer, sizeof(buffer), "%s [0x%p]",
              strlen(titleUTF8) > 0 ? titleUTF8 : "(Untitled)", hwnd);
@@ -240,6 +244,13 @@ BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
 
 // Render a single frame
 void renderFrame() {
+  int framebufferWidth = 0;
+  int framebufferHeight = 0;
+  glfwGetFramebufferSize(mainWindow, &framebufferWidth, &framebufferHeight);
+  glViewport(0, 0, framebufferWidth, framebufferHeight);
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+  glClear(GL_COLOR_BUFFER_BIT);
+
   // Start ImGui frame
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -276,7 +287,7 @@ void renderFrame() {
     ImGui::Begin("Select Window", &showWindowSelector);
     for (size_t i = 0; i < windowTitles.size(); ++i) {
       if (ImGui::Button(windowTitles[i].c_str())) {
-        // ¼ì²âÑ¡ÖÐµÄ´°¿ÚÊÇ·ñ±»×îÐ¡»¯
+        // ï¿½ï¿½ï¿½Ñ¡ï¿½ÐµÄ´ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½
         HWND hwnd = openWindows[i];
         if (IsIconic(hwnd)) {
           continue;
@@ -291,7 +302,7 @@ void renderFrame() {
 
   if (sourceCapture && sourceCapture->isTextureInitialized()) {
     // Render ImGui
-    sourceCapture->Render();  // Õâ»á×Ô¶¯°ó¶¨FBO
+    sourceCapture->Render();  // ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½FBO
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
   } else {
     sourceImage->Render();
@@ -328,8 +339,21 @@ int main() {
   // Initialize filters and pipeline
   setupFilterPipeline();
   // Main render loop
+  auto lastFrameTime = std::chrono::steady_clock::now();
   while (!glfwWindowShouldClose(mainWindow)) {
     renderFrame();
+    const bool isFocused =
+        glfwGetWindowAttrib(mainWindow, GLFW_FOCUSED) == GLFW_TRUE;
+    if (!isFocused) {
+      // Keep a stable low refresh when unfocused to avoid scheduler-induced jitter.
+      constexpr auto kUnfocusedFrameInterval = std::chrono::milliseconds(33);
+      const auto now = std::chrono::steady_clock::now();
+      const auto elapsed = now - lastFrameTime;
+      if (elapsed < kUnfocusedFrameInterval) {
+        std::this_thread::sleep_for(kUnfocusedFrameInterval - elapsed);
+      }
+    }
+    lastFrameTime = std::chrono::steady_clock::now();
   }
 
   // Cleanup
