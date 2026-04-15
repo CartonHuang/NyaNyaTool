@@ -25,6 +25,8 @@ std::shared_ptr<BeautyFaceFilter> beautyFilter1;
 std::shared_ptr<FaceReshapeFilter> reshapeFilter1;
 std::shared_ptr<gpupixel::LipstickFilter> lipstickFilter1;
 std::shared_ptr<gpupixel::BlusherFilter> blusherFilter1;
+std::shared_ptr<HSBFilter> hsbFilter;
+std::shared_ptr<HSBFilter> hsbFilter1;
 std::shared_ptr<SourceImage> sourceImage;
 std::shared_ptr<SourceCapture> sourceCapture;
 std::shared_ptr<SinkRender> renderSink;
@@ -36,7 +38,17 @@ float faceSlimStrength = 0.0f;
 float eyeEnlargeStrength = 0.0f;
 float lipstickStrength = 0.0f;
 float blusherStrength = 0.0f;
+float hsbSaturation = 1.0f;
+float hsbBrightness = 1.0f;
 bool isWindowTopMost = false;
+
+float toSafeSaturation(float sliderValue) {
+  // Keep UI slider range unchanged [0, 2], but apply a narrower effective range.
+  // This makes saturation tuning finer and reduces distortion.
+  constexpr float kEffectiveMin = 0.8f;
+  constexpr float kEffectiveMax = 1.2f;
+  return kEffectiveMin + (sliderValue / 2.0f) * (kEffectiveMax - kEffectiveMin);
+}
 // ��app.cc�������ȫ���������
 static GLuint g_capturedTexture = 0;
 static ImVec2 g_capturedSize(0, 0);
@@ -158,6 +170,8 @@ void setupFilterPipeline() {
   blusherFilter1 = BlusherFilter::create();
   reshapeFilter1 = FaceReshapeFilter::create();
   beautyFilter1 = BeautyFaceFilter::create();
+  hsbFilter = HSBFilter::create();
+  hsbFilter1 = HSBFilter::create();
 
 
   // Create source image and render sink
@@ -179,14 +193,19 @@ void setupFilterPipeline() {
   });
 
   // Build filter pipeline
-  sourceImage
-      ->addSink(renderSink);
+  sourceImage->addSink(hsbFilter)->addSink(renderSink);
 
   sourceCapture->addSink(lipstickFilter1)
       ->addSink(blusherFilter1)
       ->addSink(reshapeFilter1)
       ->addSink(beautyFilter1)
+      ->addSink(hsbFilter1)
       ->addSink(renderSink1);
+
+  hsbFilter->adjustSaturation(toSafeSaturation(hsbSaturation));
+  hsbFilter->adjustBrightness(hsbBrightness);
+  hsbFilter1->adjustSaturation(toSafeSaturation(hsbSaturation));
+  hsbFilter1->adjustBrightness(hsbBrightness);
   renderSink->onSizeChanged(1280, 720);
   renderSink1->onSizeChanged(1280, 720);
 
@@ -217,6 +236,17 @@ void updateFilterParameters() {
 
   if (ImGui::SliderFloat("Blusher", &blusherStrength, 0.0f, 10.0f)) {
     blusherFilter1->setBlendLevel(blusherStrength / 10.0f);
+  }
+
+  if (ImGui::SliderFloat("HSB Saturation", &hsbSaturation, 0.0f, 2.0f)) {
+    const float effectiveSaturation = toSafeSaturation(hsbSaturation);
+    hsbFilter->adjustSaturation(effectiveSaturation);
+    hsbFilter1->adjustSaturation(effectiveSaturation);
+  }
+
+  if (ImGui::SliderFloat("HSB Brightness", &hsbBrightness, 0.0f, 2.0f)) {
+    hsbFilter->adjustBrightness(hsbBrightness);
+    hsbFilter1->adjustBrightness(hsbBrightness);
   }
 }
 
@@ -328,6 +358,8 @@ void cleanupResources() {
   reshapeFilter1.reset();
   lipstickFilter1.reset();
   blusherFilter1.reset();
+  hsbFilter.reset();
+  hsbFilter1.reset();
 
   // Cleanup ImGui
   ImGui_ImplOpenGL3_Shutdown();
