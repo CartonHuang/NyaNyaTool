@@ -75,6 +75,27 @@ void onFramebufferResize(GLFWwindow* window, int width, int height) {
 bool isFullscreen = false;
 GLFWwindow* fullscreenWindow = nullptr;
 
+void ensureCursorVisible() {
+  if (!mainWindow) {
+    return;
+  }
+  if (glfwGetInputMode(mainWindow, GLFW_CURSOR) != GLFW_CURSOR_NORMAL) {
+    glfwSetInputMode(mainWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+  }
+  glfwSetCursor(mainWindow, nullptr);
+  HWND hwnd = glfwGetWin32Window(mainWindow);
+  if (hwnd) {
+    HCURSOR arrow = ::LoadCursor(nullptr, IDC_ARROW);
+    if (arrow) {
+      ::SetClassLongPtr(hwnd, GCLP_HCURSOR, reinterpret_cast<LONG_PTR>(arrow));
+      ::SetCursor(arrow);
+    }
+  }
+  ::ClipCursor(nullptr);
+  while (::ShowCursor(TRUE) < 0) {
+  }
+}
+
 // Function to toggle fullscreen mode
 void toggleFullscreen() {
   if (isFullscreen) {
@@ -82,6 +103,7 @@ void toggleFullscreen() {
     glfwSetWindowMonitor(mainWindow, nullptr, 100, 100, 1280, 720, 0);
     glfwSetWindowAttrib(mainWindow, GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
     glfwSetWindowAttrib(mainWindow, GLFW_FLOATING, GLFW_TRUE);
+    ensureCursorVisible();
     isFullscreen = false;
   } else {
     // Enter fullscreen mode  
@@ -90,8 +112,7 @@ void toggleFullscreen() {
     glfwSetWindowMonitor(mainWindow, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     glfwSetWindowAttrib(mainWindow, GLFW_AUTO_ICONIFY,
                         GLFW_FALSE);  // �����Զ���С��
-    glfwSetInputMode(mainWindow, GLFW_CURSOR,
-                     GLFW_CURSOR_NORMAL);  // �������ɼ�  
+    ensureCursorVisible();
     isFullscreen = true;
   }
 }
@@ -100,6 +121,12 @@ void toggleFullscreen() {
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_F && action == GLFW_PRESS) {
     toggleFullscreen();
+  }
+}
+
+void windowFocusCallback(GLFWwindow* window, int focused) {
+  if (focused == GLFW_TRUE) {
+    ensureCursorVisible();
   }
 }
 
@@ -139,6 +166,7 @@ bool setupGlfwWindow() {
 
   // Set key callback
   glfwSetKeyCallback(mainWindow, keyCallback);
+  glfwSetWindowFocusCallback(mainWindow, windowFocusCallback);
 
   return true;
 }
@@ -150,6 +178,7 @@ void setupImGui() {
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
   io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/msyh.ttc",  // ΢���ź�����·��
                                18.0f, nullptr,
                                io.Fonts->GetGlyphRangesChineseFull());
@@ -161,6 +190,7 @@ void setupImGui() {
   // ��ʼ�����
   ImGui_ImplGlfw_InitForOpenGL(mainWindow, true);
   ImGui_ImplOpenGL3_Init("#version 130");
+  ensureCursorVisible();
 }
 
 // Initialize GPUPixel filters and pipeline
@@ -274,6 +304,10 @@ BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam) {
 
 // Render a single frame
 void renderFrame() {
+  ImGuiIO& io = ImGui::GetIO();
+  io.MouseDrawCursor =
+      isFullscreen && sourceCapture && sourceCapture->isTextureInitialized();
+
   int framebufferWidth = 0;
   int framebufferHeight = 0;
   glfwGetFramebufferSize(mainWindow, &framebufferWidth, &framebufferHeight);
@@ -387,6 +421,9 @@ int main() {
     glfwPollEvents();
     if (glfwWindowShouldClose(mainWindow)) {
       break;
+    }
+    if (isFullscreen && sourceCapture && sourceCapture->isTextureInitialized()) {
+      ensureCursorVisible();
     }
     renderFrame();
     const bool isFocused =
