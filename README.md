@@ -51,9 +51,6 @@
 - OpenGL：GPUPixel 基于 OpenGL/ES 构建，需确保系统支持 OpenGL。    
 - GPUPixel 库：请按照 [GPUPixel 构建文档](https://gpupixel.pixpark.net/guide/build) 进行编译和安装。
 
-## 😭BUG提示
-
-由于在渲染上存在一个我没de出来的同步异步bug，导致如果你在开启一个窗口后再将它全屏或者最大化，大概率会触发闪退，当然相应的解决方法就是先把这个窗口全屏了再开启捕捉就可以了，之后只要你不是一秒切五六次全屏，都是可以正常在全屏和普通窗口间切换的。
 
 ## 📄许可证
 
