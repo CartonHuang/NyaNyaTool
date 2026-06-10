@@ -20,6 +20,7 @@
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
 #include <winrt/Windows.Foundation.h >
 #include <mutex>
+#include <algorithm>
 using namespace Microsoft::WRL;
 using namespace winrt;
 using namespace winrt::Windows::Graphics;
@@ -35,9 +36,11 @@ static IDirect3DDevice g_winrtDevice = nullptr;
 static winrt::event_token g_frameToken;
 static int captureHeight = 0;
 static int captureWidth = 0;
+static std::mutex g_captureMutex;
 
 namespace {
 void stopCaptureSession() {
+  std::lock_guard<std::mutex> lock(g_captureMutex);
   if (g_framePool && g_frameToken) {
     g_framePool.FrameArrived(g_frameToken);
     g_frameToken = {};
@@ -133,33 +136,42 @@ void SourceCapture::Render() {
   }
   GPUPixelContext::getInstance()->runSync([=] {
 
-    // ��FBO���������
+    ComPtr<ID3D11Texture2D> currentTexture;
+    int currentWidth, currentHeight;
+    {
+      std::lock_guard<std::mutex> lock(g_captureMutex);
+      currentTexture = capturedTexture;
+      currentWidth = captureWidth;
+      currentHeight = captureHeight;
+    }
+
+    // FBO
     _framebuffer->active();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     
-    // �����ӿ�ƥ��FBO�ߴ�
-    glViewport(0, 0, captureWidth, captureHeight);
-    // ִ��ʵ����Ⱦ
+    // Match viewport to FBO size
+    glViewport(0, 0, currentWidth, currentHeight);
+    // Execute actual rendering
 
     if (!targetHwnd_ || !IsWindow(targetHwnd_)) {
 
       return;
     }
-    // ��֤HWND��Ч��
+    // Validate HWND
     if (!IsWindow(targetHwnd_)) {
       stopCapture();
       return;
     }
     
-    // ��֤������
-    if (!capturedTexture || captureWidth <= 0 || captureHeight <= 0) {
+    // Validate
+    if (!currentTexture || currentWidth <= 0 || currentHeight <= 0) {
       return;
     }
     ComPtr<ID3D11DeviceContext> d3dContext;
     g_d3dDevice->GetImmediateContext(&d3dContext);
     D3D11_TEXTURE2D_DESC desc = {0};
-    capturedTexture->GetDesc(&desc);
+    currentTexture->GetDesc(&desc);
     desc.Usage = D3D11_USAGE_STAGING;
     desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     desc.BindFlags = 0;
@@ -170,27 +182,30 @@ void SourceCapture::Render() {
       return;
     }
 
-    // ��������������Ƶ��ݴ�����
-    d3dContext->CopyResource(stagingTexture.Get(), capturedTexture.Get());
+    // Copy resource
+    d3dContext->CopyResource(stagingTexture.Get(), currentTexture.Get());
 
-    // ӳ����������
-    D3D11_MAPPED_SUBRESOURCE mapped;
-    d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0,
-                                  &mapped);
+    // Map resource
+    D3D11_MAPPED_SUBRESOURCE mapped = {0};
+    if (FAILED(d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+      return;
+    }
 
-    // ������Ⱦ
-    std::vector<uint8_t> pixels(captureWidth * captureHeight * 4);
+    // Render
+    std::vector<uint8_t> pixels(currentWidth * currentHeight * 4);
     const uint8_t* src = static_cast<uint8_t*>(mapped.pData);
     uint8_t* dst = pixels.data();
     const size_t srcRowPitch = mapped.RowPitch;
-    const size_t dstRowPitch = captureWidth * 4;  
+    const size_t dstRowPitch = currentWidth * 4;  
+    const size_t safeRowCopyBytes = std::min<size_t>(dstRowPitch, srcRowPitch);
 
-    for (int y = 0; y < captureHeight; ++y) {
-      memcpy(dst + y * dstRowPitch, src + y * srcRowPitch, dstRowPitch);
+    for (int y = 0; y < currentHeight; ++y) {
+      if (y >= desc.Height) break;
+      memcpy(dst + y * dstRowPitch, src + y * srcRowPitch, safeRowCopyBytes);
     }
 
 
-    // ��ʼ��/����OpenGL����
+    // Initialize OpenGL texture
     if (!_textureInitialized) {
     glGenTextures(1, &_texture);
     glBindTexture(GL_TEXTURE_2D, _texture);
@@ -200,24 +215,24 @@ void SourceCapture::Render() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     _textureInitialized = true;
     }
-    // ����framebuffer
-    if (!_framebuffer || _framebuffer->getWidth() != captureWidth ||
-        _framebuffer->getHeight() != captureHeight) {
+    // Framebuffer
+    if (!_framebuffer || _framebuffer->getWidth() != currentWidth ||
+        _framebuffer->getHeight() != currentHeight) {
     _framebuffer = GPUPixelContext::getInstance()
                         ->getFramebufferFactory()
-                        ->fetchFramebuffer(captureWidth, captureHeight);
+                        ->fetchFramebuffer(currentWidth, currentHeight);
     setFramebuffer(_framebuffer);
     }
 
-    // �ϴ���������
+    // Upload
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexImage2D(GL_TEXTURE_2D, 0,
-                GL_RGBA,  // OpenGL�ڲ���ʽ
-                captureWidth, captureHeight, 0,
-                GL_BGRA,  // ƥ��DXGI_FORMAT_B8G8R8A8_UNORM
+                GL_RGBA,  // OpenGL internal format
+                currentWidth, currentHeight, 0,
+                GL_BGRA,  // Match DXGI_FORMAT_B8G8R8A8_UNORM
                  GL_UNSIGNED_BYTE, pixels.data());
 
-    // ���ӳ��
+    // Map resource
     d3dContext->Unmap(stagingTexture.Get(), 0);
     
     
@@ -230,7 +245,7 @@ void SourceCapture::Render() {
           GPUPIXEL_MODE_FMT_PICTURE, GPUPIXEL_FRAME_TYPE_RGBA8888);
     }
 
-    // ���������˾���
+    // Do render
     Source::doRender(true);
 
 
@@ -273,18 +288,18 @@ void SourceCapture::processWindowCapture() {
   int width = rc.right - rc.left;
   int height = rc.bottom - rc.top;
 
-  // ��֤HWND��Ч��
+  // Validate HWND
   if (!IsWindow(targetHwnd_)) {
     throw std::runtime_error("Invalid window handle");
   }
   stopCaptureSession();
-  // ��ȡͼ�β���ӿ�
+  // Get capture item
   auto activation_factory = winrt::get_activation_factory<
       winrt::Windows::Graphics::Capture::GraphicsCaptureItem>();
   auto captureInterop = activation_factory.as<IGraphicsCaptureItemInterop>();
     
 
-  // ����������
+  // 
   if (FAILED(captureInterop->CreateForWindow(
           targetHwnd_,
           winrt::guid_of<
@@ -293,7 +308,7 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create capture item");
   }
 
-  // ����D3D11�豸
+  // D3D11
   D3D_FEATURE_LEVEL featureLevel;
   if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
                                nullptr, 0, D3D11_SDK_VERSION, &g_d3dDevice,
@@ -301,7 +316,7 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create D3D11 device");
   }
 
-  // ת��ΪWinRTͼ���豸
+  // WinRT
   ComPtr<IDXGIDevice> dxgiDevice;
   g_d3dDevice.As(&dxgiDevice);
   IInspectable* inspectable = nullptr;
@@ -317,12 +332,12 @@ void SourceCapture::processWindowCapture() {
   inspectable->Release();
 
 
-  // ����֡��
+  // 
   g_framePool = Direct3D11CaptureFramePool::Create(
       g_winrtDevice, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2,
       captureItem.Size());
 
-  // ��������Ự
+  // 
   g_session =
       g_framePool.CreateCaptureSession(captureItem);
 
@@ -332,32 +347,41 @@ void SourceCapture::processWindowCapture() {
                                                                 auto&&) {
 
     if (Direct3D11CaptureFrame frame = g_framePool.TryGetNextFrame()) {
-      // ��ȡ֡�ߴ�
+      std::lock_guard<std::mutex> lock(g_captureMutex);
+
+      // 
       SizeInt32 size = frame.ContentSize();
-      captureHeight = size.Height;
-      captureWidth = size.Width;
-      if (captureItem.Size().Width != captureWidth ||
-          captureItem.Size().Height != captureHeight) {
+      
+      if (captureItem.Size().Width != size.Width ||
+          captureItem.Size().Height != size.Height) {
+
+        capturedTexture.Reset();
+        captureWidth = captureItem.Size().Width;
+        captureHeight = captureItem.Size().Height;
 
         g_framePool.Recreate(g_winrtDevice,
-                             DirectXPixelFormat::B8G8R8A8UIntNormalized, 1,
+                             DirectXPixelFormat::B8G8R8A8UIntNormalized, 2,
                              captureItem.Size());
-        printf("%d %d\n", captureItem.Size().Width, captureItem.Size().Height);
-      }
-      // ��ȡDXGI�ӿ�
-      auto surface = frame.Surface();
-      auto access = surface.as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
+        printf("Resize: %d %d\n", captureWidth, captureHeight);
+      } else {
+        captureHeight = size.Height;
+        captureWidth = size.Width;
 
-      // ��ȡ����
-      ComPtr<ID3D11Texture2D> texture;
-      if (SUCCEEDED(access->GetInterface(IID_PPV_ARGS(&texture)))) {
-        capturedTexture = texture;
+        // DXGI
+        auto surface = frame.Surface();
+        auto access = surface.as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
+
+        // 
+        ComPtr<ID3D11Texture2D> texture;
+        if (SUCCEEDED(access->GetInterface(IID_PPV_ARGS(&texture)))) {
+          capturedTexture = texture;
+        }
       }
       frame.Close();
     }
 
   });
-  // �ȴ��������
+  // 
   MSG msg;
   const auto waitStart = std::chrono::steady_clock::now();
   constexpr auto kFirstFrameTimeout = std::chrono::milliseconds(400);
@@ -367,7 +391,12 @@ void SourceCapture::processWindowCapture() {
       TranslateMessage(&msg);
       DispatchMessage(&msg);
     }
-    if (capturedTexture) {
+    bool hasTexture = false;
+    {
+      std::lock_guard<std::mutex> lock(g_captureMutex);
+      hasTexture = (capturedTexture != nullptr);
+    }
+    if (hasTexture) {
       break;
     }
     if (std::chrono::steady_clock::now() - waitStart >= kFirstFrameTimeout) {
@@ -378,9 +407,17 @@ void SourceCapture::processWindowCapture() {
 
 
 
-  
-  // ��֤������
-  if (!capturedTexture || captureWidth <= 0 || captureHeight <= 0) {
+  ComPtr<ID3D11Texture2D> currentTexture;
+  int currentWidth, currentHeight;
+  {
+    std::lock_guard<std::mutex> lock(g_captureMutex);
+    currentTexture = capturedTexture;
+    currentWidth = captureWidth;
+    currentHeight = captureHeight;
+  }
+
+  // Validate
+  if (!currentTexture || currentWidth <= 0 || currentHeight <= 0) {
     return;
   }
 
@@ -388,7 +425,7 @@ void SourceCapture::processWindowCapture() {
   g_d3dDevice->GetImmediateContext(&d3dContext);
   
   D3D11_TEXTURE2D_DESC desc = {0};
-  capturedTexture->GetDesc(&desc);
+  currentTexture->GetDesc(&desc);
   desc.Usage = D3D11_USAGE_STAGING;
   desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
   desc.BindFlags = 0;
@@ -399,14 +436,14 @@ void SourceCapture::processWindowCapture() {
     throw std::runtime_error("Failed to create staging texture");
   }
 
-  // ��������������Ƶ��ݴ�����
-  d3dContext->CopyResource(stagingTexture.Get(), capturedTexture.Get());
+  // Copy resource
+  d3dContext->CopyResource(stagingTexture.Get(), currentTexture.Get());
 
-  // ӳ����������
+  // Map resource
   D3D11_MAPPED_SUBRESOURCE mapped = {0};
   if (SUCCEEDED(d3dContext->Map(stagingTexture.Get(), 0, D3D11_MAP_READ, 0,
                                 &mapped))) {
-    // ��ʼ��/����OpenGL����
+    // Initialize OpenGL texture
     if (!_textureInitialized) {
       glGenTextures(1, &_texture);
       glBindTexture(GL_TEXTURE_2D, _texture);
@@ -417,28 +454,27 @@ void SourceCapture::processWindowCapture() {
       _textureInitialized = true;
     }
 
-    // ����framebuffer�������Ҫ��
-    if (!_framebuffer || _framebuffer->getWidth() != captureWidth ||
-        _framebuffer->getHeight() != captureHeight) {
+    // Framebuffer
+    if (!_framebuffer || _framebuffer->getWidth() != currentWidth ||
+        _framebuffer->getHeight() != currentHeight) {
       _framebuffer = GPUPixelContext::getInstance()
                          ->getFramebufferFactory()
-                         ->fetchFramebuffer(captureWidth, captureHeight);
+                         ->fetchFramebuffer(currentWidth, currentHeight);
       setFramebuffer(_framebuffer);
     }
 
-    // �ϴ���������
+    // Upload
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexImage2D(GL_TEXTURE_2D, 0,
-                 GL_RGBA,  // OpenGL�ڲ���ʽ
-                 captureWidth, captureHeight, 0,
-                 GL_BGRA,  // ƥ��DXGI_FORMAT_B8G8R8A8_UNORM
+                 GL_RGBA,  // OpenGL internal format
+                 currentWidth, currentHeight, 0,
+                 GL_BGRA,  // Match DXGI_FORMAT_B8G8R8A8_UNORM
                  GL_UNSIGNED_BYTE, mapped.pData);
 
-    // ���ӳ��
     d3dContext->Unmap(stagingTexture.Get(), 0);
   }
 
-  // ������Ⱦ
+  // Render to framebuffer
   renderToFramebuffer();
 #endif
 }
